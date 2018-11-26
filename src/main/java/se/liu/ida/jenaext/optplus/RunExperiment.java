@@ -14,7 +14,6 @@ import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryExecution;
 import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.query.QueryFactory;
-import org.apache.jena.query.QuerySolution;
 import org.apache.jena.query.ResultSet;
 import org.apache.jena.riot.RIOT;
 import org.apache.jena.shared.JenaException;
@@ -41,10 +40,12 @@ public class RunExperiment extends CmdGeneral
     final protected ModContext modContext = new ModContext();
     final protected ArgDecl argQueryFile  = new ArgDecl(ArgDecl.HasValue, "query", "queryfile");
     final protected ArgDecl argHDTFile    = new ArgDecl(ArgDecl.HasValue, "hdt", "hdtfile");
+    final protected ArgDecl argWarmupsPerQuery    = new ArgDecl(ArgDecl.HasValue, "warmupsPerQuery");
 
     protected Query query; 
-    protected ExperimentGraph graph;
+    protected ExperimentGraph instrumentedGraph;
     protected Dataset dataset;
+    protected int warmupsPerQuery = 1;
 
     public static void main( String... argv )
     {
@@ -62,8 +63,9 @@ public class RunExperiment extends CmdGeneral
         addModule(modContext);
 
         super.getUsage().startCategory("Experiment options");
-        super.add( argQueryFile, "--queryfile", "file with the SPARQL query to be used for the experiment" );
+        super.add( argQueryFile, "--queryfile", "File with the SPARQL query to be used for the experiment" );
         super.add( argHDTFile, "--hdtfile", "HDT file with the dataset to be used for the experiment" );
+        super.add( argWarmupsPerQuery, "--warmupsPerQuery", "Number of warm-up runs for each query (optional, default is " + warmupsPerQuery + ")" );
 
         QueryEnginePlus.register();
     }
@@ -87,6 +89,15 @@ public class RunExperiment extends CmdGeneral
 
         if ( modGeneral.debug )
         	QueryIteratorBase.traceIterators = true;
+
+        if ( hasArg(argWarmupsPerQuery) ) {
+        	try {
+        		warmupsPerQuery = Integer.parseInt( getValue(argWarmupsPerQuery) );
+        	}
+        	catch ( Exception e ) {
+        		cmdError("Parsing the given warmupsPerQuery failed: " + e.getMessage() );
+        	}
+        }
 
         if ( ! hasArg(argQueryFile) ) {
         	cmdError("No query file specified");
@@ -114,8 +125,8 @@ public class RunExperiment extends CmdGeneral
         	return;
         }
 
-        graph = new ExperimentGraph( new HDTGraph(hdt) );
-        final DatasetGraph dsg = DatasetGraphFactory.create(graph);
+        instrumentedGraph = new ExperimentGraph( new HDTGraph(hdt) );
+        final DatasetGraph dsg = DatasetGraphFactory.create(instrumentedGraph);
         dataset = DatasetFactory.wrap(dsg);
     }
 
@@ -126,40 +137,83 @@ public class RunExperiment extends CmdGeneral
 //    	ARQ.getContext().set(QueryEnginePlus.classnameOptPlusIterator, "QueryIterHashJoinPlusMaterializeLeftOnTheFly" );
     	ARQ.getContext().set(QueryEnginePlus.classnameOptPlusIterator, "QueryIterNestedLoopJoinPlus" );
 
+    	final Query q = query;
+    	final String queryID = "1";
+
     	ARQ.getContext().setTrue(QueryEnginePlus.useOptPlusSemantics);
-        execQuery();
+        runQuery(q, queryID);
 
     	ARQ.getContext().setFalse(QueryEnginePlus.useOptPlusSemantics);
-        execQuery();
-
-    	ARQ.getContext().setTrue(QueryEnginePlus.useOptPlusSemantics);
-        execQuery();
+        runQuery(q, queryID);
     }
 
-    protected void execQuery()
+    protected void runQuery( Query q, String queryID )
     {
-    	graph.resetReadAccessCounter();
-    	final long t1 = System.nanoTime();
-        final QueryExecution qe = QueryExecutionFactory.create(query, dataset);
-    	final long t2 = System.nanoTime();
-        final ResultSet rs = qe.execSelect();
-        int cnt = 0;
-        long t1st = 0L;
-        while ( rs.hasNext() ) {
-        	cnt++;
-        	if ( cnt == 1 )
-        		t1st = System.nanoTime();
+    	int solutionCounter = 0;
+    	for ( int i=0; i < warmupsPerQuery; ++i )
+    		solutionCounter = warmupQueryExec(q);
 
-        	final QuerySolution s = rs.next();
-        	//System.err.println( s.toString() );
+    	measureQueryExec(q, queryID, solutionCounter);
+    }
+
+    protected int warmupQueryExec( Query q )
+    {
+        final QueryExecution qe = QueryExecutionFactory.create(q, dataset);
+        final ResultSet rs = qe.execSelect();
+        int solutionCounter = 0;
+        while ( rs.hasNext() ) {
+        	rs.next();
+        	solutionCounter++;
         }
-    	final long t3 = System.nanoTime();
-    	System.out.printf( "Result size: %d \n", cnt );
-    	System.out.printf( "Overall time: %d \n", (t3-t1)/1000000 );
-    	System.out.printf( "\t Creation time: %d \n", (t2-t1)/1000000 );
-    	System.out.printf( "\t\t Exec time: %d \n", (t3-t2)/1000000 );
-    	System.out.printf( "\t\t Overall time to first: %d \n", (t1st-t1)/1000000 );
-    	System.out.printf( "\t\t read accesses: %d \n", graph.getReadAccessCounter() );
+        return solutionCounter;
+    }
+
+    protected void measureQueryExec( Query q, String queryID, int solutionCounter )
+    {
+    	instrumentedGraph.resetReadAccessCounter();
+
+    	final long[] timesUntilSolutions    = new long[solutionCounter];
+    	final long[] accessesUntilSolutions = new long[solutionCounter];
+    	int i = 0;
+
+    	final long startTime = System.nanoTime();
+        final QueryExecution qe = QueryExecutionFactory.create(query, dataset);
+    	final long timeAfterCreate = System.nanoTime();
+        final ResultSet rs = qe.execSelect();
+        while ( rs.hasNext() )
+        {
+        	rs.next();
+
+        	timesUntilSolutions[i]    = ( System.nanoTime() - startTime );
+        	accessesUntilSolutions[i] = instrumentedGraph.getReadAccessCounter();
+
+        	i++; 
+        }
+
+    	final long endTime = System.nanoTime();
+
+    	final long overallTime  = endTime - startTime;
+    	final long creationTime = timeAfterCreate - startTime;
+    	final long execTime     = endTime - timeAfterCreate;
+    	final long overallAccesses = instrumentedGraph.getReadAccessCounter();
+
+    	final String csv = queryID
+    	                   + ", " + solutionCounter
+    	                   + ", " + overallAccesses
+    	                   + ", " + overallTime/1000000d
+    	                   + ", " + creationTime/1000000d
+    	                   + ", " + execTime/1000000d;
+
+    	String csvTimesUntilSolutions    = queryID + ", " + overallTime/1000000d;
+    	String csvAccessesUntilSolutions = queryID + ", " + overallAccesses;
+    	for ( int j=0; j < solutionCounter; ++j ) {
+    		csvTimesUntilSolutions    += "\n , , " + timesUntilSolutions[j]/1000000d;
+    		csvAccessesUntilSolutions += "\n , , " + accessesUntilSolutions[j];
+    	}
+System.out.println( csv );
+System.err.println( csvTimesUntilSolutions );
+System.out.println( csvAccessesUntilSolutions );
+System.out.println();
     }
 
 }
