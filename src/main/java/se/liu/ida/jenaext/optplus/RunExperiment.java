@@ -26,6 +26,7 @@ import org.rdfhdt.hdt.hdt.HDT;
 import org.rdfhdt.hdt.hdt.HDTManager;
 import org.rdfhdt.hdtjena.HDTGraph;
 
+import se.liu.ida.jenaext.optplus.graph.ExperimentGraph;
 import se.liu.ida.jenaext.optplus.sparql.engine.main.QueryEnginePlus;
 import arq.cmdline.ModContext;
 
@@ -42,6 +43,7 @@ public class RunExperiment extends CmdGeneral
     final protected ArgDecl argHDTFile    = new ArgDecl(ArgDecl.HasValue, "hdt", "hdtfile");
 
     protected Query query; 
+    protected ExperimentGraph graph;
     protected Dataset dataset;
 
     public static void main( String... argv )
@@ -112,7 +114,7 @@ public class RunExperiment extends CmdGeneral
         	return;
         }
 
-        final HDTGraph graph = new HDTGraph(hdt);
+        graph = new ExperimentGraph( new HDTGraph(hdt) );
         final DatasetGraph dsg = DatasetGraphFactory.create(graph);
         dataset = DatasetFactory.wrap(dsg);
     }
@@ -136,6 +138,7 @@ public class RunExperiment extends CmdGeneral
 
     protected void execQuery()
     {
+    	graph.resetReadAccessCounter();
     	final long t1 = System.nanoTime();
         final QueryExecution qe = QueryExecutionFactory.create(query, dataset);
     	final long t2 = System.nanoTime();
@@ -156,6 +159,7 @@ public class RunExperiment extends CmdGeneral
     	System.out.printf( "\t Creation time: %d \n", (t2-t1)/1000000 );
     	System.out.printf( "\t\t Exec time: %d \n", (t3-t2)/1000000 );
     	System.out.printf( "\t\t Overall time to first: %d \n", (t1st-t1)/1000000 );
+    	System.out.printf( "\t\t read accesses: %d \n", graph.getReadAccessCounter() );
     }
 
 }
