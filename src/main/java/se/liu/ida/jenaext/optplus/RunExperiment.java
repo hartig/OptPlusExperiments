@@ -105,8 +105,7 @@ public class RunExperiment extends CmdGeneral
         final String hdtFileName = getValue(argHDTFile);
         final HDT hdt;
         try {
-//        	hdt = HDTManager.mapIndexedHDT(hdtFileName, null);
-        	hdt = HDTManager.loadIndexedHDT(hdtFileName, null);
+        	hdt = HDTManager.mapIndexedHDT(hdtFileName, null);
         }
         catch ( IOException e ) {
         	cmdError( "Accessing the HDT file failed: " + e.getMessage() );
@@ -149,7 +148,7 @@ public class RunExperiment extends CmdGeneral
         		t1st = System.nanoTime();
 
         	final QuerySolution s = rs.next();
-//        	System.err.println( s.toString() );
+        	//System.err.println( s.toString() );
         }
     	final long t3 = System.nanoTime();
     	System.out.printf( "Result size: %d \n", cnt );
