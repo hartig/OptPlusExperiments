@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 import jena.cmd.ArgDecl;
 import jena.cmd.CmdGeneral;
@@ -156,24 +157,31 @@ public class RunExperiment extends CmdGeneral
     {
         QueryEnginePlus.register();
 
-// Stats CSV file: 1st column is query ID,
-// query files are in subdirs named exactly like the query ID
-// inside this subdir are three files, one of which is Opt_file<queryID>.txt and the other is OptP_file<queryID>.txt  
-
-//    	performExperiment(true, "QueryIterHashJoinPlusMaterializeLeftOnTheFly");
-    	performExperiment(true, "QueryIterNestedLoopJoinPlus");
-    	performExperiment(false, null);
+    	performExperiment("Opt", false, null);
+    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftOnTheFly");
+    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftFirst");
+    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeRightFirst");
+//    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeLeftOnTheFly");
+//    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeRightFirst");
+    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlus");
+    	performExperiment("OptP", false, null);
     }
 
-    protected void performExperiment( boolean useOptPlusSemantics, String classnameOptPlusIterator )
+    protected void performExperiment( String filenamePrefix, boolean useOptPlusSemantics, String classnameOptPlusIterator )
     {
     	ARQ.getContext().set(QueryEnginePlus.useOptPlusSemantics, useOptPlusSemantics);
     	ARQ.getContext().set(QueryEnginePlus.classnameOptPlusIterator, classnameOptPlusIterator);
 
+    	final String outfileName = filenamePrefix + "-" + useOptPlusSemantics + "-" + classnameOptPlusIterator + ".csv";
+    	final File csvOutputFile = new File( "measurements-" + outfileName );
+
         BufferedReader br = null;
+        PrintWriter w = null;
 
         try
         {
+        	w = new PrintWriter(csvOutputFile);
+
         	final FileReader fr = new FileReader(queryidFile);
             br = new BufferedReader(fr);
             for ( String line; (line = br.readLine()) != null; )
@@ -181,8 +189,9 @@ public class RunExperiment extends CmdGeneral
             	final String[] splittedLine = line.split(",");
             	final String queryID = splittedLine[0].trim();
 
-            	final String csv = runQuery(queryID);
-System.out.println(csv);
+            	final String csv = runQuery(filenamePrefix, queryID, outfileName);
+            	w.println(csv);
+            	w.flush();
             }
         }
         catch ( IOException e ) {
@@ -190,6 +199,11 @@ System.out.println(csv);
         }
         finally
         {
+        	if ( w != null ) {
+        		w.flush();
+        		w.close();
+        	}
+
         	if ( br != null ) {
         		try {
         			br.close();
@@ -201,13 +215,13 @@ System.out.println(csv);
         }
     }
 
-    protected String runQuery( String queryID )
+    protected String runQuery( String filenamePrefix, String queryID, String outfileName )
     {
     	final File queryDir = new File(queriesDir, queryID);
 //    	if ( ! queryDir.exists() || queryDir.canRead() )
 //    		return queryID + ", ERROR: directory with the query files does not exist or cannot be read " + queryDir.toString();
 
-    	final File queryFile = new File(queryDir, "Opt_file" + queryID + ".txt");
+    	final File queryFile = new File(queryDir, filenamePrefix + "_file" + queryID + ".txt");
 //    	if ( ! queryFile.exists() || queryFile.canRead() )
 //    		return queryID + ", ERROR: the query file does not exist or cannot be read";
 
@@ -221,16 +235,22 @@ System.out.println(csv);
     		return queryID + ", ERROR: reading the query failed (" + e.getMessage() + ")";
     	}
 
-    	return runQuery(query, queryID);
+    	final File csvfileTimesUntilSolutions    = new File( queryDir, "TimesUntilSolutions-" + outfileName );
+    	final File csvfileAccessesUntilSolutions = new File( queryDir, "AccessesUntilSolutions-" + outfileName );
+
+    	return runQuery(query, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
     }
 
-    protected String runQuery( Query q, String queryID )
+    protected String runQuery( Query q,
+                               String queryID,
+                               File csvfileTimesUntilSolutions,
+                               File csvfileAccessesUntilSolutions )
     {
     	int solutionCounter = 0;
     	for ( int i=0; i < warmupsPerQuery; ++i )
     		solutionCounter = warmupQueryExec(q);
 
-    	return measureQueryExec(q, queryID, solutionCounter);
+    	return measureQueryExec(q, queryID, solutionCounter, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
     }
 
     protected int warmupQueryExec( Query q )
@@ -245,13 +265,19 @@ System.out.println(csv);
         return solutionCounter;
     }
 
-    protected String measureQueryExec( Query q, String queryID, int solutionCounter )
+    protected String measureQueryExec( Query q,
+                                       String queryID,
+                                       int solutionCounter,
+                                       File csvfileTimesUntilSolutions,
+                                       File csvfileAccessesUntilSolutions )
     {
     	instrumentedGraph.resetReadAccessCounter();
 
     	final long[] timesUntilSolutions    = new long[solutionCounter];
     	final long[] accessesUntilSolutions = new long[solutionCounter];
     	int i = 0;
+
+    	System.gc();
 
     	final long startTime = System.nanoTime();
         final QueryExecution qe = QueryExecutionFactory.create(q, dataset);
@@ -268,6 +294,8 @@ System.out.println(csv);
         }
 
     	final long endTime = System.nanoTime();
+
+    	System.gc();
 
     	final long overallAccesses = instrumentedGraph.getReadAccessCounter();
     	final long overallTime  = endTime - startTime;
@@ -324,15 +352,40 @@ System.out.println(csv);
     	                   + ", " + accessesToPercentageOfResult[9];
 
 /*
-    	String csvTimesUntilSolutions    = queryID + ", " + overallTime/1000000d;
-    	String csvAccessesUntilSolutions = queryID + ", " + overallAccesses;
-    	for ( int j=0; j < solutionCounter; ++j ) {
-    		csvTimesUntilSolutions    += "\n , , " + timesUntilSolutions[j]/1000000d;
-    		csvAccessesUntilSolutions += "\n , , " + accessesUntilSolutions[j];
+		PrintWriter w1 = null;
+		PrintWriter w2 = null;
+
+    	try
+    	{
+    		w1 = new PrintWriter(csvfileTimesUntilSolutions);
+    		w2 = new PrintWriter(csvfileAccessesUntilSolutions);
+
+    		w1.println( queryID + ", " + overallTime/1000000d );
+    		w2.println( queryID + ", " + overallAccesses );
+
+    		for ( int j=0; j < solutionCounter; ++j )
+    		{
+    			w1.println( " , , " + timesUntilSolutions[j]/1000000d );
+    			w2.println( " , , " + accessesUntilSolutions[j] );
+    		}
     	}
-System.err.println( csvTimesUntilSolutions );
-System.out.println( csvAccessesUntilSolutions );
+    	catch ( Exception e ) {
+        	System.err.println( e.getMessage() );
+        }
+        finally
+        {
+        	if ( w1 != null ) {
+        		w1.flush();
+        		w1.close();
+        	}
+
+        	if ( w2 != null ) {
+        		w2.flush();
+        		w2.close();
+        	}
+        }
 */
+
     	return csv;
     }
 
