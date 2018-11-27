@@ -134,26 +134,34 @@ public class RunExperiment extends CmdGeneral
     protected void exec()
     {
         QueryEnginePlus.register();
-//    	ARQ.getContext().set(QueryEnginePlus.classnameOptPlusIterator, "QueryIterHashJoinPlusMaterializeLeftOnTheFly" );
-    	ARQ.getContext().set(QueryEnginePlus.classnameOptPlusIterator, "QueryIterNestedLoopJoinPlus" );
+
+// Stats CSV file: 1st column is query ID,
+// query files are in subdirs named exactly like the query ID
+// inside this subdir are three files, one of which is Opt_file<queryID>.txt and the other is OptP_file<queryID>.txt  
+
+//    	performExperiment(true, "QueryIterHashJoinPlusMaterializeLeftOnTheFly");
+    	performExperiment(true, "QueryIterNestedLoopJoinPlus");
+    	performExperiment(false, null);
+    }
+
+    protected void performExperiment( boolean useOptPlusSemantics, String classnameOptPlusIterator )
+    {
+    	ARQ.getContext().set(QueryEnginePlus.useOptPlusSemantics, useOptPlusSemantics);
+    	ARQ.getContext().set(QueryEnginePlus.classnameOptPlusIterator, classnameOptPlusIterator);
 
     	final Query q = query;
     	final String queryID = "1";
 
-    	ARQ.getContext().setTrue(QueryEnginePlus.useOptPlusSemantics);
-        runQuery(q, queryID);
-
-    	ARQ.getContext().setFalse(QueryEnginePlus.useOptPlusSemantics);
         runQuery(q, queryID);
     }
 
-    protected void runQuery( Query q, String queryID )
+    protected String runQuery( Query q, String queryID )
     {
     	int solutionCounter = 0;
     	for ( int i=0; i < warmupsPerQuery; ++i )
     		solutionCounter = warmupQueryExec(q);
 
-    	measureQueryExec(q, queryID, solutionCounter);
+    	return measureQueryExec(q, queryID, solutionCounter);
     }
 
     protected int warmupQueryExec( Query q )
@@ -168,7 +176,7 @@ public class RunExperiment extends CmdGeneral
         return solutionCounter;
     }
 
-    protected void measureQueryExec( Query q, String queryID, int solutionCounter )
+    protected String measureQueryExec( Query q, String queryID, int solutionCounter )
     {
     	instrumentedGraph.resetReadAccessCounter();
 
@@ -192,28 +200,70 @@ public class RunExperiment extends CmdGeneral
 
     	final long endTime = System.nanoTime();
 
+    	final long overallAccesses = instrumentedGraph.getReadAccessCounter();
     	final long overallTime  = endTime - startTime;
     	final long creationTime = timeAfterCreate - startTime;
     	final long execTime     = endTime - timeAfterCreate;
-    	final long overallAccesses = instrumentedGraph.getReadAccessCounter();
+
+    	final long[] timeToPercentageOfResult     = new long[10];
+    	final long[] accessesToPercentageOfResult = new long[10];
+    	if ( solutionCounter > 0 )
+    	{
+    		for ( int j=1; j<11; ++j ) {
+        		int arrayIndex = 1 + (int) Math.ceil( (j*solutionCounter)/10d );
+        		timeToPercentageOfResult[j-1]     = timesUntilSolutions[arrayIndex];
+        		accessesToPercentageOfResult[j-1] = accessesUntilSolutions[arrayIndex];
+        	}
+    	}
+    	else
+    	{
+    		for ( int j=1; j<11; ++j ) {
+        		timeToPercentageOfResult[j-1]     = 0L;
+        		accessesToPercentageOfResult[j-1] = 0L;
+        	}
+    	}
+    	
 
     	final String csv = queryID
     	                   + ", " + solutionCounter
     	                   + ", " + overallAccesses
     	                   + ", " + overallTime/1000000d
     	                   + ", " + creationTime/1000000d
-    	                   + ", " + execTime/1000000d;
+    	                   + ", " + execTime/1000000d
+    	                   + ", "
+    	                   + ", " + timeToPercentageOfResult[0]/1000000d
+    	                   + ", " + timeToPercentageOfResult[1]/1000000d
+    	                   + ", " + timeToPercentageOfResult[2]/1000000d
+    	                   + ", " + timeToPercentageOfResult[3]/1000000d
+    	                   + ", " + timeToPercentageOfResult[4]/1000000d
+    	                   + ", " + timeToPercentageOfResult[5]/1000000d
+    	                   + ", " + timeToPercentageOfResult[6]/1000000d
+    	                   + ", " + timeToPercentageOfResult[7]/1000000d
+    	                   + ", " + timeToPercentageOfResult[8]/1000000d
+    	                   + ", " + timeToPercentageOfResult[9]/1000000d
+    	                   + ", "
+    	                   + ", " + accessesToPercentageOfResult[0]
+    	                   + ", " + accessesToPercentageOfResult[1]
+    	                   + ", " + accessesToPercentageOfResult[2]
+    	                   + ", " + accessesToPercentageOfResult[3]
+    	                   + ", " + accessesToPercentageOfResult[4]
+    	                   + ", " + accessesToPercentageOfResult[5]
+    	                   + ", " + accessesToPercentageOfResult[6]
+    	                   + ", " + accessesToPercentageOfResult[7]
+    	                   + ", " + accessesToPercentageOfResult[8]
+    	                   + ", " + accessesToPercentageOfResult[9];
 
+/*
     	String csvTimesUntilSolutions    = queryID + ", " + overallTime/1000000d;
     	String csvAccessesUntilSolutions = queryID + ", " + overallAccesses;
     	for ( int j=0; j < solutionCounter; ++j ) {
     		csvTimesUntilSolutions    += "\n , , " + timesUntilSolutions[j]/1000000d;
     		csvAccessesUntilSolutions += "\n , , " + accessesUntilSolutions[j];
     	}
-System.out.println( csv );
 System.err.println( csvTimesUntilSolutions );
 System.out.println( csvAccessesUntilSolutions );
-System.out.println();
+*/
+    	return csv;
     }
 
 }
