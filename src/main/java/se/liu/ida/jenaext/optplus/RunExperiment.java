@@ -1,5 +1,8 @@
 package se.liu.ida.jenaext.optplus;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 
 import jena.cmd.ArgDecl;
@@ -38,11 +41,13 @@ public class RunExperiment extends CmdGeneral
 	static { JenaSystem.init(); }
 
     final protected ModContext modContext = new ModContext();
-    final protected ArgDecl argQueryFile  = new ArgDecl(ArgDecl.HasValue, "query", "queryfile");
-    final protected ArgDecl argHDTFile    = new ArgDecl(ArgDecl.HasValue, "hdt", "hdtfile");
-    final protected ArgDecl argWarmupsPerQuery    = new ArgDecl(ArgDecl.HasValue, "warmupsPerQuery");
+    final protected ArgDecl argQueryIDFile      = new ArgDecl(ArgDecl.HasValue, "queryids");
+    final protected ArgDecl argQueryDir         = new ArgDecl(ArgDecl.HasValue, "querydir");
+    final protected ArgDecl argHDTFile          = new ArgDecl(ArgDecl.HasValue, "hdt", "hdtfile");
+    final protected ArgDecl argWarmupsPerQuery  = new ArgDecl(ArgDecl.HasValue, "warmupsPerQuery");
 
-    protected Query query; 
+    protected File queryidFile;
+    protected File queriesDir;
     protected ExperimentGraph instrumentedGraph;
     protected Dataset dataset;
     protected int warmupsPerQuery = 1;
@@ -63,7 +68,8 @@ public class RunExperiment extends CmdGeneral
         addModule(modContext);
 
         super.getUsage().startCategory("Experiment options");
-        super.add( argQueryFile, "--queryfile", "File with the SPARQL query to be used for the experiment" );
+        super.add( argQueryIDFile, "--queryids", "CSV file whose first column lists the IDs of the SPARQL queries to be used for the experiment" );
+        super.add( argQueryDir, "--querydir", "Directory that contains the subdirectories with the query files" );
         super.add( argHDTFile, "--hdtfile", "HDT file with the dataset to be used for the experiment" );
         super.add( argWarmupsPerQuery, "--warmupsPerQuery", "Number of warm-up runs for each query (optional, default is " + warmupsPerQuery + ")" );
 
@@ -79,7 +85,7 @@ public class RunExperiment extends CmdGeneral
     @Override
     protected String getSummary()
     {
-        return getCommandName() + " --hdtfile=file --queryfile=file";
+        return getCommandName() + " --hdtfile=file --queryids=file";
     }
 
     @Override
@@ -99,16 +105,31 @@ public class RunExperiment extends CmdGeneral
         	}
         }
 
-        if ( ! hasArg(argQueryFile) ) {
-        	cmdError("No query file specified");
+        if ( ! hasArg(argQueryIDFile) ) {
+        	cmdError("No query ID file specified");
         }
 
-        final String queryFileName = getValue(argQueryFile);
-        try {
-        	query = QueryFactory.read(queryFileName);
+        queryidFile = new File( getValue(argQueryIDFile) );
+        if ( ! queryidFile.exists() ) {
+        	cmdError("The specified query ID file does not exist");
         }
-        catch ( JenaException e ) {
-        	cmdError( "Reading the query failed: " + e.getMessage() );
+        if ( ! queryidFile.canRead() ) {
+        	cmdError("The specified query ID file cannot be read");
+        }
+
+        if ( ! hasArg(argQueryDir) ) {
+        	cmdError("No query directory specified");
+        }
+
+        queriesDir = new File( getValue(argQueryDir) );
+        if ( ! queriesDir.exists() ) {
+        	cmdError("The specified query directory does not exist");
+        }
+        if ( ! queriesDir.canRead() ) {
+        	cmdError("The specified query directory cannot be read");
+        }
+        if ( ! queriesDir.isDirectory() ) {
+        	cmdError("The specified query directory is not a directory");
         }
 
         if ( ! hasArg(argHDTFile) ) {
@@ -149,10 +170,58 @@ public class RunExperiment extends CmdGeneral
     	ARQ.getContext().set(QueryEnginePlus.useOptPlusSemantics, useOptPlusSemantics);
     	ARQ.getContext().set(QueryEnginePlus.classnameOptPlusIterator, classnameOptPlusIterator);
 
-    	final Query q = query;
-    	final String queryID = "1";
+        BufferedReader br = null;
 
-        runQuery(q, queryID);
+        try
+        {
+        	final FileReader fr = new FileReader(queryidFile);
+            br = new BufferedReader(fr);
+            for ( String line; (line = br.readLine()) != null; )
+            {
+            	final String[] splittedLine = line.split(",");
+            	final String queryID = splittedLine[0].trim();
+
+            	final String csv = runQuery(queryID);
+System.out.println(csv);
+            }
+        }
+        catch ( IOException e ) {
+        	System.err.println( e.getMessage() );
+        }
+        finally
+        {
+        	if ( br != null ) {
+        		try {
+        			br.close();
+        		}
+        		catch ( IOException e ) {
+                	System.err.println( e.getMessage() );
+        		}
+        	}
+        }
+    }
+
+    protected String runQuery( String queryID )
+    {
+    	final File queryDir = new File(queriesDir, queryID);
+//    	if ( ! queryDir.exists() || queryDir.canRead() )
+//    		return queryID + ", ERROR: directory with the query files does not exist or cannot be read " + queryDir.toString();
+
+    	final File queryFile = new File(queryDir, "Opt_file" + queryID + ".txt");
+//    	if ( ! queryFile.exists() || queryFile.canRead() )
+//    		return queryID + ", ERROR: the query file does not exist or cannot be read";
+
+    	final Query query;
+    	try
+    	{
+    		query = QueryFactory.read( queryFile.getPath() );
+    	}
+    	catch ( JenaException e )
+    	{
+    		return queryID + ", ERROR: reading the query failed (" + e.getMessage() + ")";
+    	}
+
+    	return runQuery(query, queryID);
     }
 
     protected String runQuery( Query q, String queryID )
@@ -185,7 +254,7 @@ public class RunExperiment extends CmdGeneral
     	int i = 0;
 
     	final long startTime = System.nanoTime();
-        final QueryExecution qe = QueryExecutionFactory.create(query, dataset);
+        final QueryExecution qe = QueryExecutionFactory.create(q, dataset);
     	final long timeAfterCreate = System.nanoTime();
         final ResultSet rs = qe.execSelect();
         while ( rs.hasNext() )
@@ -210,7 +279,8 @@ public class RunExperiment extends CmdGeneral
     	if ( solutionCounter > 0 )
     	{
     		for ( int j=1; j<11; ++j ) {
-        		int arrayIndex = 1 + (int) Math.ceil( (j*solutionCounter)/10d );
+    			final int tmp = (int) Math.ceil( (j*solutionCounter)/10d );
+        		final int arrayIndex = Math.min(tmp, solutionCounter-1);
         		timeToPercentageOfResult[j-1]     = timesUntilSolutions[arrayIndex];
         		accessesToPercentageOfResult[j-1] = accessesUntilSolutions[arrayIndex];
         	}
