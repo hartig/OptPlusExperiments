@@ -300,6 +300,7 @@ public class RunExperiment extends CmdGeneral
     	System.gc();
 
     	final long overallAccesses = instrumentedGraph.getReadAccessCounter();
+    	final long overallTriples  = instrumentedGraph.getTriplesCounter();
     	final long overallTime  = endTime - startTime;
     	final long creationTime = timeAfterCreate - startTime;
     	final long execTime     = endTime - timeAfterCreate;
@@ -330,6 +331,7 @@ public class RunExperiment extends CmdGeneral
     	final String csv = queryID
     	                   + ", " + solutionCounter
     	                   + ", " + overallAccesses
+    	                   + ", " + overallTriples
     	                   + ", " + overallTime/1000000d
     	                   + ", " + creationTime/1000000d
     	                   + ", " + execTime/1000000d
