@@ -275,6 +275,7 @@ public class RunExperiment extends CmdGeneral
 
     	final long[] timesUntilSolutions    = new long[solutionCounter];
     	final long[] accessesUntilSolutions = new long[solutionCounter];
+    	final long[] triplesUntilSolutions  = new long[solutionCounter];
     	int i = 0;
 
     	System.gc();
@@ -289,6 +290,7 @@ public class RunExperiment extends CmdGeneral
 
         	timesUntilSolutions[i]    = ( System.nanoTime() - startTime );
         	accessesUntilSolutions[i] = instrumentedGraph.getReadAccessCounter();
+        	triplesUntilSolutions[i]  = instrumentedGraph.getTriplesCounter();
 
         	i++; 
         }
@@ -304,6 +306,7 @@ public class RunExperiment extends CmdGeneral
 
     	final long[] timeToPercentageOfResult     = new long[10];
     	final long[] accessesToPercentageOfResult = new long[10];
+    	final long[] triplesToPercentageOfResult  = new long[10];
     	if ( solutionCounter > 0 )
     	{
     		for ( int j=1; j<11; ++j ) {
@@ -311,6 +314,7 @@ public class RunExperiment extends CmdGeneral
         		final int arrayIndex = Math.min(tmp, solutionCounter-1);
         		timeToPercentageOfResult[j-1]     = timesUntilSolutions[arrayIndex];
         		accessesToPercentageOfResult[j-1] = accessesUntilSolutions[arrayIndex];
+        		triplesToPercentageOfResult[j-1]  = triplesUntilSolutions[arrayIndex];
         	}
     	}
     	else
@@ -318,6 +322,7 @@ public class RunExperiment extends CmdGeneral
     		for ( int j=1; j<11; ++j ) {
         		timeToPercentageOfResult[j-1]     = 0L;
         		accessesToPercentageOfResult[j-1] = 0L;
+        		triplesToPercentageOfResult[j-1]  = 0L;
         	}
     	}
     	
@@ -349,7 +354,18 @@ public class RunExperiment extends CmdGeneral
     	                   + ", " + accessesToPercentageOfResult[6]
     	                   + ", " + accessesToPercentageOfResult[7]
     	                   + ", " + accessesToPercentageOfResult[8]
-    	                   + ", " + accessesToPercentageOfResult[9];
+    	                   + ", " + accessesToPercentageOfResult[9]
+    	                   + ", "
+    	                   + ", " + triplesToPercentageOfResult[0]
+    	                   + ", " + triplesToPercentageOfResult[1]
+    	                   + ", " + triplesToPercentageOfResult[2]
+    	                   + ", " + triplesToPercentageOfResult[3]
+    	                   + ", " + triplesToPercentageOfResult[4]
+    	                   + ", " + triplesToPercentageOfResult[5]
+    	                   + ", " + triplesToPercentageOfResult[6]
+    	                   + ", " + triplesToPercentageOfResult[7]
+    	                   + ", " + triplesToPercentageOfResult[8]
+    	                   + ", " + triplesToPercentageOfResult[9];
 
 /*
 		PrintWriter w1 = null;
