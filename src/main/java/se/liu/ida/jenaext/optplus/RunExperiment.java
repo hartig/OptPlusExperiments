@@ -159,8 +159,8 @@ public class RunExperiment extends CmdGeneral
 
     	performExperiment("Opt", false, null);
     	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftOnTheFly");
-    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftFirst");
-    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeRightFirst");
+//    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftFirst");
+//    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeRightFirst");
 //    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeLeftOnTheFly");
 //    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeRightFirst");
     	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlus");
@@ -174,6 +174,8 @@ public class RunExperiment extends CmdGeneral
 
     	final String outfileName = filenamePrefix + "-" + useOptPlusSemantics + "-" + classnameOptPlusIterator + ".csv";
     	final File csvOutputFile = new File( "measurements-" + outfileName );
+
+    	System.out.println(outfileName);
 
         BufferedReader br = null;
         PrintWriter w = null;
