@@ -163,6 +163,7 @@ public class RunExperiment extends CmdGeneral
 //    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeRightFirst");
 //    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeLeftOnTheFly");
 //    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeRightFirst");
+    	performExperiment("Opt", true, "QueryIterNLJPlusWithOuterLoopOverMaterializedLeft");
     	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlus");
     	performExperiment("OptP", false, null);
     }
