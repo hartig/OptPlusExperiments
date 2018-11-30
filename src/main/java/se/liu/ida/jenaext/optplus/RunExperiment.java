@@ -330,7 +330,26 @@ public class RunExperiment extends CmdGeneral
         		triplesToPercentageOfResult[j-1]  = 0L;
         	}
     	}
-    	
+
+    	final long[] timeTo10Mappings     = new long[10];
+    	final long[] accessesTo10Mappings = new long[10];
+    	final long[] triplesTo10Mappings  = new long[10];
+    	if ( solutionCounter >= 100 )
+    	{
+    		for ( int j=1; j<11; ++j ) {
+        		timeTo10Mappings[j-1]     = timesUntilSolutions[j*10];
+        		accessesTo10Mappings[j-1] = accessesUntilSolutions[j*10];
+        		triplesTo10Mappings[j-1]  = triplesUntilSolutions[j*10];
+        	}
+    	}
+    	else
+    	{
+    		for ( int j=1; j<11; ++j ) {
+    			timeTo10Mappings[j-1]     = 0L;
+    			accessesTo10Mappings[j-1] = 0L;
+    			triplesTo10Mappings[j-1]  = 0L;
+        	}
+    	}
 
     	final String csv = queryID
     	                   + ", " + solutionCounter
@@ -371,7 +390,40 @@ public class RunExperiment extends CmdGeneral
     	                   + ", " + triplesToPercentageOfResult[6]
     	                   + ", " + triplesToPercentageOfResult[7]
     	                   + ", " + triplesToPercentageOfResult[8]
-    	                   + ", " + triplesToPercentageOfResult[9];
+    	                   + ", " + triplesToPercentageOfResult[9]
+    	                   + ", "
+    	                   + ", " + timeTo10Mappings[0]/1000000d
+    	                   + ", " + timeTo10Mappings[1]/1000000d
+    	                   + ", " + timeTo10Mappings[2]/1000000d
+    	                   + ", " + timeTo10Mappings[3]/1000000d
+    	                   + ", " + timeTo10Mappings[4]/1000000d
+    	                   + ", " + timeTo10Mappings[5]/1000000d
+    	                   + ", " + timeTo10Mappings[6]/1000000d
+    	                   + ", " + timeTo10Mappings[7]/1000000d
+    	                   + ", " + timeTo10Mappings[8]/1000000d
+    	                   + ", " + timeTo10Mappings[9]/1000000d
+    	                   + ", "
+    	                   + ", " + accessesTo10Mappings[0]
+    	                   + ", " + accessesTo10Mappings[1]
+    	                   + ", " + accessesTo10Mappings[2]
+    	                   + ", " + accessesTo10Mappings[3]
+    	                   + ", " + accessesTo10Mappings[4]
+    	                   + ", " + accessesTo10Mappings[5]
+    	                   + ", " + accessesTo10Mappings[6]
+    	                   + ", " + accessesTo10Mappings[7]
+    	                   + ", " + accessesTo10Mappings[8]
+    	                   + ", " + accessesTo10Mappings[9]
+    	                   + ", "
+    	                   + ", " + triplesTo10Mappings[0]
+    	                   + ", " + triplesTo10Mappings[1]
+    	                   + ", " + triplesTo10Mappings[2]
+    	                   + ", " + triplesTo10Mappings[3]
+    	                   + ", " + triplesTo10Mappings[4]
+    	                   + ", " + triplesTo10Mappings[5]
+    	                   + ", " + triplesTo10Mappings[6]
+    	                   + ", " + triplesTo10Mappings[7]
+    	                   + ", " + triplesTo10Mappings[8]
+    	                   + ", " + triplesTo10Mappings[9];
 
 /*
 		PrintWriter w1 = null;
