@@ -252,12 +252,8 @@ public class RunExperiment extends CmdGeneral
     {
     	int solutionCounter = 0;
     	for ( int i=0; i < warmupsPerQuery; ++i )
-{
-System.out.println("warmup " + queryID);
     		solutionCounter = warmupQueryExec(q);
-}
 
-System.out.println("measure " + queryID);
     	return measureQueryExec(q, queryID, solutionCounter, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
     }
 
