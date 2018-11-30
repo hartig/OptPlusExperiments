@@ -157,16 +157,16 @@ public class RunExperiment extends CmdGeneral
     {
         QueryEnginePlus.register();
 
-    	//performExperiment("Opt", false, null);
-    	//performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftOnTheFly");
+    	performExperiment("Opt", false, null);
+    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftOnTheFly");
 //    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeLeftFirst");
 //    	performExperiment("Opt", true, "QueryIterHashJoinPlusMaterializeRightFirst");
 //    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeLeftOnTheFly");
 //    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlusMaterializeRightFirst");
-    	//performExperiment("Opt", true, "QueryIterNLJPlusWithOuterLoopOverMaterializedLeft");
-    	//performExperiment("Opt", true, "QueryIterNestedLoopJoinPlus");
+    	performExperiment("Opt", true, "QueryIterNLJPlusWithOuterLoopOverMaterializedLeft");
+    	performExperiment("Opt", true, "QueryIterNestedLoopJoinPlus");
     	performExperiment("Opt", true, "QueryIterSubsumptionAwareJoinPlus");
-    	//performExperiment("OptP", false, null);
+    	performExperiment("OptP", false, null);
     }
 
     protected void performExperiment( String filenamePrefix, boolean useOptPlusSemantics, String classnameOptPlusIterator )
