@@ -242,7 +242,16 @@ public class RunExperiment extends CmdGeneral
     	final File csvfileTimesUntilSolutions    = new File( queryDir, "TimesUntilSolutions-" + outfileName );
     	final File csvfileAccessesUntilSolutions = new File( queryDir, "AccessesUntilSolutions-" + outfileName );
 
-    	return runQuery(query, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+    	try {
+    		return runQuery(query, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+    	}
+    	catch ( Throwable e )
+    	{
+    		if ( e instanceof OutOfMemoryError )
+    			System.gc();
+
+    		return queryID + ", ERROR: caught " + e.getClass().getName() + " when running query (" + e.getMessage() + ")";
+    	}
     }
 
     protected String runQuery( Query q,
