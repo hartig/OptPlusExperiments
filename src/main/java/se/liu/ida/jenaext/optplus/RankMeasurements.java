@@ -10,7 +10,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.ToDoubleFunction;
-import java.util.function.ToIntFunction;
 
 public class RankMeasurements
 {
@@ -179,17 +178,17 @@ public class RankMeasurements
     		}
     		else //if ( value.contains(".") )
     		{
-    			final List<IndexedDoubleValue> l = new ArrayList<>();
+    			final List<IndexedValue> l = new ArrayList<>();
     			for ( k=0; k < numberOfCorrectTuples; ++k ) {
     				final int i = indexesOfCorrectTuples[k];
-    				l.add( createIndexedDoubleValue(i, tuples[i][j]) );
+    				l.add( createIndexedValue(i, tuples[i][j]) );
     			}
 
-    			l.sort( myIndexedDoubleValueComparator );
+    			l.sort( myIndexedValueComparator );
 
-    			final Iterator<IndexedDoubleValue> it = l.iterator();
+    			final Iterator<IndexedValue> it = l.iterator();
 
-    			final IndexedDoubleValue first = it.next();
+    			final IndexedValue first = it.next();
     			int currentRank      = highestRank;
     			int previousRank     = currentRank;
     			double previousValue = first.value;
@@ -198,7 +197,7 @@ public class RankMeasurements
 
     			while ( it.hasNext() ) {
     				currentRank--;
-    				final IndexedDoubleValue x = it.next();
+    				final IndexedValue x = it.next();
     				if ( x.value != previousValue ) {
     					previousValue = x.value;
     					previousRank = currentRank;
@@ -211,42 +210,24 @@ public class RankMeasurements
     	return resultTuples;
     }
 
-    static public class IndexedIntValue
-    {
-    	final int index;
-    	final int value;
-    	public IndexedIntValue( int index, int value ) { this.index = index; this.value = value; }
-    }
 
-    static public IndexedIntValue createIndexedIntValue( int index, String value )
-    {
-    	return new IndexedIntValue( index, Integer.parseInt(value) );
-    }
-
-    static public ToIntFunction<IndexedIntValue> myToIntFunction = new ToIntFunction<IndexedIntValue>() {
-    	@Override
-    	public int applyAsInt( IndexedIntValue x ) { return x.value; }
-    };
-
-    static public Comparator<IndexedIntValue> myIndexedIntValueComparator = Comparator.comparingInt(myToIntFunction);
-
-    static public class IndexedDoubleValue
+    static public class IndexedValue
     {
     	final int index;
     	final double value;
-    	public IndexedDoubleValue( int index, double value ) { this.index = index; this.value = value; }
+    	public IndexedValue( int index, double value ) { this.index = index; this.value = value; }
     }
 
-    static public IndexedDoubleValue createIndexedDoubleValue( int index, String value )
+    static public IndexedValue createIndexedValue( int index, String value )
     {
-    	return new IndexedDoubleValue( index, Double.parseDouble(value) );
+    	return new IndexedValue( index, Double.parseDouble(value) );
     }
 
-    static public ToDoubleFunction<IndexedDoubleValue> myToDoubleFunction = new ToDoubleFunction<IndexedDoubleValue>() {
+    static public ToDoubleFunction<IndexedValue> myToDoubleFunction = new ToDoubleFunction<IndexedValue>() {
     	@Override
-    	public double applyAsDouble( IndexedDoubleValue x ) { return x.value; }
+    	public double applyAsDouble( IndexedValue x ) { return x.value; }
     };
 
-    static public Comparator<IndexedDoubleValue> myIndexedDoubleValueComparator = Comparator.comparingDouble(myToDoubleFunction);
+    static public Comparator<IndexedValue> myIndexedValueComparator = Comparator.comparingDouble(myToDoubleFunction);
 
 }
