@@ -5,6 +5,11 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import jena.cmd.ArgDecl;
 import jena.cmd.CmdGeneral;
@@ -243,7 +248,7 @@ public class RunExperiment extends CmdGeneral
     	final File csvfileAccessesUntilSolutions = new File( queryDir, "AccessesUntilSolutions-" + outfileName );
 
     	try {
-    		return runQuery(query, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+    		return runQueryUntilTimeout(query, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
     	}
     	catch ( Throwable e )
     	{
@@ -252,6 +257,49 @@ public class RunExperiment extends CmdGeneral
 
     		return queryID + ", ERROR: caught " + e.getClass().getName() + " when running query (" + e.getMessage() + ")";
     	}
+    }
+
+    @SuppressWarnings("deprecation")
+	protected String runQueryUntilTimeout( final Query q,
+                                           final String queryID,
+                                           final File csvfileTimesUntilSolutions,
+                                           final File csvfileAccessesUntilSolutions )
+    {
+    	final long TIMEOUT_IN_SECONDS = 10L;
+
+    	final Callable<String> c = new Callable<String>() {
+    		@Override
+	        public String call() throws Exception {
+	            final String result = runQuery(q, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+	            return result;
+	        }
+    	};
+
+    	final FutureTask<String> timeoutTask = new FutureTask<String>(c);
+    	final Thread thread = new Thread(timeoutTask);
+    	thread.start();
+
+    	String result;
+    	try
+    	{
+        	result = timeoutTask.get( TIMEOUT_IN_SECONDS, TimeUnit.SECONDS );
+    	}
+    	catch ( InterruptedException e ) {
+    		result = queryID + ", ERROR: timeout thread interrupted (" + e.getMessage() + ")";
+    	}
+    	catch ( ExecutionException e ) {
+    		result = queryID + ", ERROR: caught " + e.getClass().getName() + " when executing timeout thread (" + e.getMessage() + ")";
+    	}
+    	catch ( TimeoutException e ) {
+    		result = queryID + ", TIMEOUT, " + TIMEOUT_IN_SECONDS + " seconds";
+    	}
+
+    	timeoutTask.cancel(true);
+
+    	if ( thread.isAlive() )
+    		thread.stop();
+
+    	return result;
     }
 
     protected String runQuery( Query q,
