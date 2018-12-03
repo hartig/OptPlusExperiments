@@ -44,6 +44,8 @@ import arq.cmdline.ModContext;
  */
 public class RunExperiment extends CmdGeneral
 {
+	static final public long TIMEOUT_IN_SECONDS = 10L;
+
 	static { JenaSystem.init(); }
 
     final protected ModContext modContext = new ModContext();
@@ -248,7 +250,7 @@ public class RunExperiment extends CmdGeneral
     	final File csvfileAccessesUntilSolutions = new File( queryDir, "AccessesUntilSolutions-" + outfileName );
 
     	try {
-    		return runQueryUntilTimeout(query, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+    		return runQuery(query, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
     	}
     	catch ( Throwable e )
     	{
@@ -259,59 +261,40 @@ public class RunExperiment extends CmdGeneral
     	}
     }
 
-    @SuppressWarnings("deprecation")
-	protected String runQueryUntilTimeout( final Query q,
-                                           final String queryID,
-                                           final File csvfileTimesUntilSolutions,
-                                           final File csvfileAccessesUntilSolutions )
-    {
-    	final long TIMEOUT_IN_SECONDS = 10L;
-
-    	final Callable<String> c = new Callable<String>() {
-    		@Override
-	        public String call() throws Exception {
-	            final String result = runQuery(q, queryID, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
-	            return result;
-	        }
-    	};
-
-    	final FutureTask<String> timeoutTask = new FutureTask<String>(c);
-    	final Thread thread = new Thread(timeoutTask);
-    	thread.start();
-
-    	String result;
-    	try
-    	{
-        	result = timeoutTask.get( TIMEOUT_IN_SECONDS, TimeUnit.SECONDS );
-    	}
-    	catch ( InterruptedException e ) {
-    		result = queryID + ", ERROR: timeout thread interrupted (" + e.getMessage() + ")";
-    	}
-    	catch ( ExecutionException e ) {
-    		result = queryID + ", ERROR: caught " + e.getClass().getName() + " when executing timeout thread (" + e.getMessage() + ")";
-    	}
-    	catch ( TimeoutException e ) {
-    		result = queryID + ", TIMEOUT, " + TIMEOUT_IN_SECONDS + " seconds";
-    	}
-
-    	timeoutTask.cancel(true);
-
-    	if ( thread.isAlive() )
-    		thread.stop();
-
-    	return result;
-    }
-
     protected String runQuery( Query q,
                                String queryID,
                                File csvfileTimesUntilSolutions,
                                File csvfileAccessesUntilSolutions )
     {
-    	int solutionCounter = 0;
-    	for ( int i=0; i < warmupsPerQuery; ++i )
-    		solutionCounter = warmupQueryExec(q);
+    	try
+    	{
+        	int solutionCounter = 0;
+        	for ( int i=0; i < warmupsPerQuery; ++i )
+        		solutionCounter = warmupQueryExecWithTimeout(q);
 
-    	return measureQueryExec(q, queryID, solutionCounter, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+        	return measureQueryExecWithTimeout(q, queryID, solutionCounter, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+    	}
+    	catch ( InterruptedException e ) {
+    		return queryID + ", ERROR: timeout thread interrupted (" + e.getMessage() + ")";
+    	}
+    	catch ( ExecutionException e ) {
+    		return queryID + ", ERROR: caught " + e.getClass().getName() + " when executing timeout thread (" + e.getMessage() + ")";
+    	}
+    	catch ( TimeoutException e ) {
+    		return queryID + ", TIMEOUT, " + TIMEOUT_IN_SECONDS + " seconds";
+    	}
+    }
+
+    protected int warmupQueryExecWithTimeout( final Query q ) throws InterruptedException, ExecutionException, TimeoutException
+    {
+    	final Callable<Integer> c = new Callable<Integer>() {
+    		@Override
+	        public Integer call() throws Exception {
+	            return warmupQueryExec(q);
+	        }
+    	};
+
+    	return runWithTimeout(c);
     }
 
     protected int warmupQueryExec( Query q )
@@ -324,6 +307,23 @@ public class RunExperiment extends CmdGeneral
         	solutionCounter++;
         }
         return solutionCounter;
+    }
+
+    protected String measureQueryExecWithTimeout( final Query q,
+                                                  final String queryID,
+                                                  final int solutionCounter,
+                                                  final File csvfileTimesUntilSolutions,
+                                                  final File csvfileAccessesUntilSolutions )
+                                    		   throws InterruptedException, ExecutionException, TimeoutException
+    {
+    	final Callable<String> c = new Callable<String>() {
+    		@Override
+	        public String call() throws Exception {
+	            return measureQueryExec(q, queryID, solutionCounter, csvfileTimesUntilSolutions, csvfileAccessesUntilSolutions);
+	        }
+    	};
+
+    	return runWithTimeout(c);
     }
 
     protected String measureQueryExec( Query q,
@@ -518,6 +518,30 @@ public class RunExperiment extends CmdGeneral
 */
 
     	return csv;
+    }
+
+
+    @SuppressWarnings("deprecation")
+    static protected <T> T runWithTimeout( Callable<T> c ) throws InterruptedException, ExecutionException, TimeoutException
+    {
+    	final FutureTask<T> timeoutTask = new FutureTask<T>(c);
+    	final Thread thread = new Thread(timeoutTask);
+    	thread.start();
+
+    	T result;
+    	try
+    	{
+        	result = timeoutTask.get( TIMEOUT_IN_SECONDS, TimeUnit.SECONDS );
+    	}
+    	finally
+    	{
+    		timeoutTask.cancel(true);
+
+    		if ( thread.isAlive() )
+    			thread.stop();
+    	}
+
+    	return result;
     }
 
 }
