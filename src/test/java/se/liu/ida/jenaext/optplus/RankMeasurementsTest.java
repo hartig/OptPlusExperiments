@@ -76,5 +76,4 @@ public class RankMeasurementsTest
 		assertEquals( "1, ",       result[1] );
 		assertEquals( "1, 1, 2, ", result[2] );
 	}
-
 }
