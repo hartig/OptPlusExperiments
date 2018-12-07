@@ -13,6 +13,8 @@ import java.util.function.ToDoubleFunction;
 
 public class RankMeasurements
 {
+	static public int numberOfColumns = 73;
+
 	static public void main( String... argv )
     {
         final int numberOfFiles = argv.length;
@@ -49,7 +51,7 @@ public class RankMeasurements
         try
         {
         	final String line1 = readers[0].readLine();;
-        	final int numberOfColumns = line1.split(",").length;
+//        	final int numberOfColumns = line1.split(",").length;
 
             final String[] currentLines = new String[numberOfFiles];
             currentLines[0] = line1;
@@ -109,6 +111,7 @@ public class RankMeasurements
     	}
     }
 
+    // input is one line from each CSV file
     static public String[] processLine( String[] currentLines, int numberOfColumns )
     {
         final String[][] tuples = new String[ currentLines.length ][];
@@ -140,6 +143,7 @@ public class RankMeasurements
     	return resultLines;
     }
 
+    // input is one tuple from each CSV file
     static public String[][] processTuple( String[][] tuples, int numberOfColumns )
     {
     	final int highestRank = tuples.length - 1;
@@ -155,8 +159,11 @@ public class RankMeasurements
     		else
     			resultTuples[i] = new String[1];
 
-    		resultTuples[i][0] = tuples[i][0].trim();
+    		resultTuples[i][0] = tuples[i][0].trim(); // copy over the query ID
     	}
+
+    	if ( numberOfCorrectTuples==0 )
+    		return resultTuples;
 
     	final int[] indexesOfCorrectTuples = new int[numberOfCorrectTuples];
     	int k = 0;
